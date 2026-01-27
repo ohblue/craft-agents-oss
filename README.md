@@ -15,6 +15,40 @@ We built Craft Agents because we wanted a better, more opinionated (and preferab
 
 <img width="1578" height="894" alt="image" src="https://github.com/user-attachments/assets/3f1f2fe8-7cf6-4487-99ff-76f6c8c0a3fb" />
 
+## Things that are hard to believe "just work"
+
+**How do I connect to Linear, Gmail, Slack...?**
+Tell the agent "add Linear as a source." It finds public APIs and MCP servers, reads their docs, sets up credentials, and configures everything. No config files, no setup wizards.
+
+[Check out how I just connected to Slack →](https://agents.craft.do/s/DRNQEiy8w2e1v5LPgKl8b) · [Or watch it set up Gmail in one go →](https://agents.craft.do/s/yUVFb8zrlFaaGuw7mjoke)
+
+**I already have my MCP config JSON.**
+Paste it. The agent handles the rest.
+
+**What about local MCPs?**
+Fully supported. Stdio-based MCP servers run as local subprocesses on your machine. Point it at an npx command, a Python script, or any local binary. It just works.
+
+**Can it handle custom APIs?**
+Yes. Paste an OpenAPI spec, some endpoint URLs, screenshots of docs, whatever you have. It figures it out and guides you through the rest.
+
+**APIs too? Not just MCPs?**
+Craft Agents connects to anything. We have it hooked up to a direct Postgres DB behind a jumpbox. Skills + Sources = magic.
+
+**How do I import my Claude Code skills and MCPs?**
+Tell the agent you want to import your skills from Claude Code. It handles the migration.
+
+[Here I imported all my skills in one go →](https://agents.craft.do/s/gWCFqwhObFWaNJIEJmd6j)
+
+**How do I create a new skill?**
+Describe what the skill should do, give it context. The agent takes care of the rest.
+
+**Do I need to restart after changes?**
+No. Everything is instant. Mention new skills or sources with `@`, even mid-conversation.
+
+**So I can just ask it anything?**
+Yes. That's the core idea behind agent-native software. You describe what you want, and it figures out how. That's a good use of tokens.
+
+
 ## Installation
 
 ### One-Line Install (Recommended)
