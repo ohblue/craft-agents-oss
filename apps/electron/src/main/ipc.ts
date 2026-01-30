@@ -11,7 +11,8 @@ import { WindowManager } from './window-manager'
 import { registerOnboardingHandlers } from './onboarding'
 import { IPC_CHANNELS, type FileAttachment, type StoredAttachment, type AuthType, type ApiSetupInfo, type SendMessageOptions } from '../shared/types'
 import { readFileAttachment, perf, validateImageForClaudeAPI, IMAGE_LIMITS } from '@craft-agent/shared/utils'
-import { getAuthType, setAuthType, getPreferencesPath, getCustomModel, setCustomModel, getModel, setModel, getSessionDraft, setSessionDraft, deleteSessionDraft, getAllSessionDrafts, getWorkspaceByNameOrId, addWorkspace, setActiveWorkspace, getAnthropicBaseUrl, setAnthropicBaseUrl, loadStoredConfig, saveConfig, type Workspace, SUMMARIZATION_MODEL } from '@craft-agent/shared/config'
+import { getAuthType, setAuthType, getPreferencesPath, getCustomModel, setCustomModel, getModel, setModel, getSessionDraft, setSessionDraft, deleteSessionDraft, getAllSessionDrafts, getWorkspaceByNameOrId, addWorkspace, setActiveWorkspace, getAnthropicBaseUrl, setAnthropicBaseUrl, getProxyUrl, setProxyUrl, getProxyEnabled, setProxyEnabled, loadStoredConfig, saveConfig, type Workspace, SUMMARIZATION_MODEL, DEFAULT_MODEL, DEFAULT_CODEX_MODEL, isClaudeModel, isCodexModel } from '@craft-agent/shared/config'
+import { getCodexAuthStatus } from '@craft-agent/shared/auth'
 import { getSessionAttachmentsPath } from '@craft-agent/shared/sessions'
 import { loadWorkspaceSources, getSourcesBySlugs, type LoadedSource } from '@craft-agent/shared/sources'
 import { isValidThinkingLevel } from '@craft-agent/shared/agent/thinking-levels'
@@ -1169,6 +1170,8 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
       hasCredential = !!apiKey || !!anthropicBaseUrl
     } else if (authType === 'oauth_token') {
       hasCredential = !!(await manager.getClaudeOAuth())
+    } else if (authType === 'codex_oauth') {
+      hasCredential = getCodexAuthStatus().hasToken
     }
 
     return {
@@ -1196,6 +1199,18 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
 
     // Set new auth type
     setAuthType(authType)
+
+    // Update stored model when switching auth types
+    const storedModel = getModel()
+    if (authType === 'codex_oauth') {
+      if (!storedModel || isClaudeModel(storedModel)) {
+        setModel(DEFAULT_CODEX_MODEL)
+      }
+    } else if (oldAuthType === 'codex_oauth') {
+      if (!storedModel || isCodexModel(storedModel)) {
+        setModel(DEFAULT_MODEL)
+      }
+    }
 
     // Update Anthropic base URL (null to clear, undefined to keep unchanged)
     if (anthropicBaseUrl !== undefined) {
@@ -1242,6 +1257,8 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
           await manager.setClaudeOAuth(credential)
           ipcLog.info('Saved Claude OAuth access token only')
         }
+      } else if (authType === 'codex_oauth') {
+        ipcLog.info('Codex OAuth selected - credentials are managed by Codex CLI')
       }
     } else if (credential === '') {
       // Empty string means user explicitly cleared the credential
@@ -1251,6 +1268,8 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
       } else if (authType === 'oauth_token') {
         await manager.delete({ type: 'claude_oauth' })
         ipcLog.info('Claude OAuth cleared')
+      } else if (authType === 'codex_oauth') {
+        ipcLog.info('Codex OAuth selected - no local credentials to clear')
       }
     }
 
@@ -1384,6 +1403,25 @@ export function registerIpcHandlers(sessionManager: SessionManager, windowManage
       // Fallback: return the raw error message
       return { success: false, error: msg.slice(0, 300) }
     }
+  })
+
+  // Settings - Proxy
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET_PROXY, async (): Promise<string | null> => {
+    return getProxyUrl()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET_PROXY, async (_event, url: string | null): Promise<void> => {
+    setProxyUrl(url)
+    ipcLog.info('Proxy URL updated:', url || '(cleared)')
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_GET_PROXY_ENABLED, async (): Promise<boolean> => {
+    return getProxyEnabled()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SETTINGS_SET_PROXY_ENABLED, async (_event, enabled: boolean): Promise<void> => {
+    setProxyEnabled(enabled)
+    ipcLog.info('Proxy enabled updated:', enabled)
   })
 
   // ============================================================

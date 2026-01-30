@@ -62,3 +62,6 @@ id_ed25519*
 # Credentials files
 credentials.enc
 *.credentials
+
+# Electron build metadata
+apps/electron/build/

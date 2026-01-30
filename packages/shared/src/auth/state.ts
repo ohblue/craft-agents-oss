@@ -14,6 +14,7 @@
 import { getCredentialManager } from '../credentials/index.ts';
 import { loadStoredConfig, getActiveWorkspace, type AuthType, type Workspace } from '../config/storage.ts';
 import { refreshClaudeToken, isTokenExpired } from './claude-token.ts';
+import { getCodexAuthStatus } from './codex-auth.ts';
 import { debug } from '../utils/debug.ts';
 
 // ============================================
@@ -43,6 +44,8 @@ export interface AuthState {
     apiKey: string | null;
     /** Claude Max OAuth token (if using oauth_token auth type) */
     claudeOAuthToken: string | null;
+    /** Codex OAuth token (if using codex_oauth auth type) */
+    codexOAuthToken: string | null;
     /** Migration info if user needs to re-authenticate */
     migrationRequired?: MigrationInfo;
   };
@@ -228,6 +231,7 @@ export async function getAuthState(): Promise<AuthState> {
 
   const apiKey = await manager.getApiKey();
   const tokenResult = await getValidClaudeOAuthToken();
+  const codexAuth = getCodexAuthStatus();
   const activeWorkspace = getActiveWorkspace();
 
   // Determine if billing credentials are satisfied based on auth type
@@ -237,6 +241,8 @@ export async function getAuthState(): Promise<AuthState> {
     hasCredentials = !!apiKey || !!config?.anthropicBaseUrl;
   } else if (config?.authType === 'oauth_token') {
     hasCredentials = !!tokenResult.accessToken;
+  } else if (config?.authType === 'codex_oauth') {
+    hasCredentials = codexAuth.hasToken;
   }
 
   return {
@@ -245,6 +251,7 @@ export async function getAuthState(): Promise<AuthState> {
       hasCredentials,
       apiKey,
       claudeOAuthToken: tokenResult.accessToken,
+      codexOAuthToken: codexAuth.accessToken,
       migrationRequired: tokenResult.migrationRequired,
     },
     workspace: {

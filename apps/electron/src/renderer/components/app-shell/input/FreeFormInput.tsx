@@ -53,7 +53,7 @@ import { cn } from '@/lib/utils'
 import { PATH_SEP, getPathBasename } from '@/lib/platform'
 import { applySmartTypography } from '@/lib/smart-typography'
 import { AttachmentPreview } from '../AttachmentPreview'
-import { MODELS, getModelShortName, getModelContextWindow, isClaudeModel } from '@config/models'
+import { getSelectableModels, getModelShortName, getModelContextWindow, isClaudeModel } from '@config/models'
 import { useOptionalAppShellContext } from '@/context/AppShellContext'
 import { EditPopover, getEditConfig } from '@/components/ui/EditPopover'
 import { SourceAvatar } from '@/components/ui/source-avatar'
@@ -61,7 +61,7 @@ import { FreeFormInputContextBadge } from './FreeFormInputContextBadge'
 import type { FileAttachment, LoadedSource, LoadedSkill } from '../../../../shared/types'
 import type { PermissionMode } from '@craft-agent/shared/agent/modes'
 import { PERMISSION_MODE_ORDER } from '@craft-agent/shared/agent/modes'
-import { type ThinkingLevel, THINKING_LEVELS, getThinkingLevelName } from '@craft-agent/shared/agent/thinking-levels'
+import { type ThinkingLevel, getThinkingLevelName, getThinkingLevelsForModel, normalizeThinkingLevelForCodex, normalizeThinkingLevelForClaude } from '@craft-agent/shared/agent/thinking-levels'
 import { useEscapeInterrupt } from '@/context/EscapeInterruptContext'
 import { hasOpenOverlay } from '@/lib/overlay-detection'
 import { EscapeInterruptOverlay } from './EscapeInterruptOverlay'
@@ -234,6 +234,13 @@ export function FreeFormInput({
   // Uses optional variant so playground (no provider) doesn't crash.
   const appShellCtx = useOptionalAppShellContext()
   const customModel = appShellCtx?.customModel ?? null
+  const authType = appShellCtx?.authType
+  const selectableModels = getSelectableModels(authType)
+  const effectiveModelId = customModel || currentModel
+  const thinkingLevels = getThinkingLevelsForModel(authType, effectiveModelId)
+  const normalizedThinkingLevel = authType === 'codex_oauth'
+    ? normalizeThinkingLevelForCodex(thinkingLevel, effectiveModelId)
+    : normalizeThinkingLevelForClaude(thinkingLevel)
   // Access todoStates and onTodoStateChange from context for the # menu state picker
   const todoStates = appShellCtx?.todoStates ?? []
   const onTodoStateChange = appShellCtx?.onTodoStateChange
@@ -1444,13 +1451,17 @@ export function FreeFormInput({
                   <Check className="h-4 w-4 text-foreground shrink-0 ml-3" />
                 </StyledDropdownMenuItem>
               ) : (
-                /* Standard Anthropic model options */
-                MODELS.map((model) => {
+                /* Standard model options */
+                selectableModels.map((model) => {
                   const isSelected = currentModel === model.id
                   const descriptions: Record<string, string> = {
                     'claude-opus-4-5-20251101': 'Most capable for complex work',
                     'claude-sonnet-4-5-20250929': 'Best for everyday tasks',
                     'claude-haiku-4-5-20251001': 'Fastest for quick answers',
+                    'gpt-5.2-codex': 'Most advanced agentic coding',
+                    'gpt-5.2': 'Best general agentic model',
+                    'gpt-5.1-codex-max': 'Long-horizon coding tasks',
+                    'gpt-5.1-codex-mini': 'Cost-effective coding model',
                   }
                   return (
                     <StyledDropdownMenuItem
@@ -1478,13 +1489,13 @@ export function FreeFormInput({
                   <DropdownMenuSub>
                     <StyledDropdownMenuSubTrigger className="flex items-center justify-between px-2 py-2 rounded-lg">
                       <div className="text-left flex-1">
-                        <div className="font-medium text-sm">{getThinkingLevelName(thinkingLevel)}</div>
+                        <div className="font-medium text-sm">{getThinkingLevelName(normalizedThinkingLevel)}</div>
                         <div className="text-xs text-muted-foreground">Extended reasoning depth</div>
                       </div>
                     </StyledDropdownMenuSubTrigger>
                     <StyledDropdownMenuSubContent className="min-w-[220px]">
-                      {THINKING_LEVELS.map(({ id, name, description }) => {
-                        const isSelected = thinkingLevel === id
+                      {thinkingLevels.map(({ id, name, description }) => {
+                        const isSelected = normalizedThinkingLevel === id
                         return (
                           <StyledDropdownMenuItem
                             key={id}

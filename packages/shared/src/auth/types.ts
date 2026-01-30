@@ -21,6 +21,8 @@ export interface AuthState {
     apiKey: string | null;
     /** Claude Max OAuth token (if using oauth_token auth type) */
     claudeOAuthToken: string | null;
+    /** Codex OAuth token (if using codex_oauth auth type) */
+    codexOAuthToken: string | null;
   };
 
   /** Workspace/MCP configuration */

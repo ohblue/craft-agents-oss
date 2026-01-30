@@ -38,6 +38,8 @@ interface OnboardingWizardProps {
   onSelectApiSetupMethod: (method: ApiSetupMethod) => void
   onSubmitCredential: (data: ApiKeySubmitData) => void
   onStartOAuth?: () => void
+  onCheckCodexAuth?: () => void
+  onOpenCodexLogin?: () => void
   onFinish: () => void
 
   // Claude OAuth (two-step flow)
@@ -70,6 +72,8 @@ export function OnboardingWizard({
   onSelectApiSetupMethod,
   onSubmitCredential,
   onStartOAuth,
+  onCheckCodexAuth,
+  onOpenCodexLogin,
   onFinish,
   // Two-step OAuth flow
   isWaitingForCode,
@@ -125,6 +129,8 @@ export function OnboardingWizard({
             errorMessage={state.errorMessage}
             onSubmit={onSubmitCredential}
             onStartOAuth={onStartOAuth}
+            onCheckCodexAuth={onCheckCodexAuth}
+            onOpenCodexLogin={onOpenCodexLogin}
             onBack={onBack}
             isWaitingForCode={isWaitingForCode}
             onSubmitAuthCode={onSubmitAuthCode}

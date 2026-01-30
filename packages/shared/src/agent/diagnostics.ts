@@ -6,6 +6,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getLastApiError } from '../network-interceptor.ts';
 import { getAnthropicApiKey, getAnthropicBaseUrl, getClaudeOAuthToken, type AuthType } from '../config/storage.ts';
+import { getCodexAuthStatus } from '../auth/codex-auth.ts';
 
 export type DiagnosticCode =
   | 'billing_error'         // HTTP 402 from Anthropic API
@@ -283,6 +284,26 @@ async function checkOAuthToken(): Promise<CheckResult> {
   }
 }
 
+/** Check Codex login token presence */
+async function checkCodexToken(): Promise<CheckResult> {
+  try {
+    const codexAuth = getCodexAuthStatus();
+    if (!codexAuth.hasToken) {
+      return {
+        ok: false,
+        detail: '✗ Codex token: Not found',
+        failCode: 'invalid_credentials',
+        failTitle: 'Codex Login Missing',
+        failMessage: 'Your Codex login is missing. Run `codex login` in a terminal and try again.',
+      };
+    }
+    return { ok: true, detail: '✓ Codex token: Present' };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return { ok: true, detail: `✓ Codex token: Check failed (${msg})` };
+  }
+}
+
 /** Check MCP server connectivity with a quick HEAD request */
 async function checkMcpConnectivity(mcpUrl: string): Promise<CheckResult> {
   try {
@@ -360,6 +381,11 @@ export async function runErrorDiagnostics(config: DiagnosticConfig): Promise<Dia
   // 3. OAuth token check (only for oauth_token auth)
   if (authType === 'oauth_token') {
     checks.push(withTimeout(checkOAuthToken(), 5000, defaultResult));
+  }
+
+  // 4. Codex token check (only for codex_oauth auth)
+  if (authType === 'codex_oauth') {
+    checks.push(withTimeout(checkCodexToken(), 5000, defaultResult));
   }
 
   // Run all checks in parallel

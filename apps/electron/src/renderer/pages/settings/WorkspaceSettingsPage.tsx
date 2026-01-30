@@ -23,7 +23,8 @@ import { Spinner } from '@craft-agent/ui'
 import { RenameDialog } from '@/components/ui/rename-dialog'
 import type { PermissionMode, ThinkingLevel, WorkspaceSettings } from '../../../shared/types'
 import { PERMISSION_MODE_CONFIG } from '@craft-agent/shared/agent/mode-types'
-import { DEFAULT_THINKING_LEVEL, THINKING_LEVELS } from '@craft-agent/shared/agent/thinking-levels'
+import { DEFAULT_THINKING_LEVEL, getThinkingLevelsForModel, normalizeThinkingLevelForCodex, normalizeThinkingLevelForClaude } from '@craft-agent/shared/agent/thinking-levels'
+import { getSelectableModels } from '@config/models'
 import type { DetailsPageMeta } from '@/lib/navigation-registry'
 
 import {
@@ -50,6 +51,7 @@ export default function WorkspaceSettingsPage() {
   const activeWorkspaceId = appShellContext.activeWorkspaceId
   const onRefreshWorkspaces = appShellContext.onRefreshWorkspaces
   const customModel = appShellContext.customModel
+  const authType = appShellContext.authType
 
   // Workspace settings state
   const [wsName, setWsName] = useState('')
@@ -79,10 +81,13 @@ export default function WorkspaceSettingsPage() {
       setIsLoadingWorkspace(true)
       try {
         const settings = await window.electronAPI.getWorkspaceSettings(activeWorkspaceId)
+        const selectableModels = getSelectableModels(authType)
+        const defaultModel = selectableModels[0]?.id || 'claude-sonnet-4-5-20250929'
+
         if (settings) {
           setWsName(settings.name || '')
           setWsNameEditing(settings.name || '')
-          setWsModel(settings.model || 'claude-sonnet-4-5-20250929')
+          setWsModel(settings.model || defaultModel)
           setWsThinkingLevel(settings.thinkingLevel || DEFAULT_THINKING_LEVEL)
           setPermissionMode(settings.permissionMode || 'ask')
           setWorkingDirectory(settings.workingDirectory || '')
@@ -409,19 +414,21 @@ export default function WorkspaceSettingsPage() {
                     description="AI model for new chats"
                     value={wsModel}
                     onValueChange={handleModelChange}
-                    options={[
-                      { value: 'claude-opus-4-5-20251101', label: 'Opus 4.5', description: 'Most capable for complex work' },
-                      { value: 'claude-sonnet-4-5-20250929', label: 'Sonnet 4.5', description: 'Best for everyday tasks' },
-                      { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', description: 'Fastest for quick answers' },
-                    ]}
+                    options={getSelectableModels(authType).map((model) => ({
+                      value: model.id,
+                      label: model.name,
+                      description: model.description,
+                    }))}
                   />
                 )}
                 <SettingsMenuSelectRow
                   label="Thinking level"
                   description="Reasoning depth for new chats"
-                  value={wsThinkingLevel}
+                  value={authType === 'codex_oauth'
+                    ? normalizeThinkingLevelForCodex(wsThinkingLevel, customModel || wsModel)
+                    : normalizeThinkingLevelForClaude(wsThinkingLevel)}
                   onValueChange={(v) => handleThinkingLevelChange(v as ThinkingLevel)}
-                  options={THINKING_LEVELS.map(({ id, name, description }) => ({
+                  options={getThinkingLevelsForModel(authType, customModel || wsModel).map(({ id, name, description }) => ({
                     value: id,
                     label: name,
                     description,

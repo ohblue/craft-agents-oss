@@ -6,6 +6,10 @@ import type { FileAttachment, LoadedSource, PermissionMode } from '../../shared/
 
 export const mockElectronAPI = {
   isDebugMode: async () => true,
+  getProxyEnabled: async () => false,
+  setProxyEnabled: async (_enabled: boolean) => {},
+  getProxyUrl: async () => null,
+  setProxyUrl: async (_url: string | null) => {},
 
   openFileDialog: async () => {
     console.log('[Playground] openFileDialog called')

@@ -29,6 +29,7 @@ import {
   SettingsCard,
   SettingsRow,
   SettingsToggle,
+  SettingsInput,
 } from '@/components/settings'
 import { useUpdateChecker } from '@/hooks/useUpdateChecker'
 import { useOnboarding } from '@/hooks/useOnboarding'
@@ -52,6 +53,11 @@ export default function AppSettingsPage() {
   const [hasCredential, setHasCredential] = useState(false)
   const [showApiSetup, setShowApiSetup] = useState(false)
   const setFullscreenOverlayOpen = useSetAtom(fullscreenOverlayOpenAtom)
+  const [proxyUrl, setProxyUrl] = useState('')
+  const [proxySavedUrl, setProxySavedUrl] = useState('')
+  const [proxySaving, setProxySaving] = useState(false)
+  const [proxyEnabled, setProxyEnabled] = useState(false)
+  const [proxyEnabledSaving, setProxyEnabledSaving] = useState(false)
 
   // Notifications state
   const [notificationsEnabled, setNotificationsEnabled] = useState(true)
@@ -73,13 +79,18 @@ export default function AppSettingsPage() {
   const loadConnectionInfo = useCallback(async () => {
     if (!window.electronAPI) return
     try {
-      const [billing, notificationsOn] = await Promise.all([
+      const [billing, notificationsOn, savedProxyUrl, savedProxyEnabled] = await Promise.all([
         window.electronAPI.getApiSetup(),
         window.electronAPI.getNotificationsEnabled(),
+        window.electronAPI.getProxyUrl(),
+        window.electronAPI.getProxyEnabled(),
       ])
       setAuthType(billing.authType)
       setHasCredential(billing.hasCredential)
       setNotificationsEnabled(notificationsOn)
+      setProxyUrl(savedProxyUrl || '')
+      setProxySavedUrl(savedProxyUrl || '')
+      setProxyEnabled(savedProxyEnabled)
     } catch (error) {
       console.error('Failed to load settings:', error)
     }
@@ -128,6 +139,29 @@ export default function AppSettingsPage() {
     await window.electronAPI.setNotificationsEnabled(enabled)
   }, [])
 
+  const handleSaveProxy = useCallback(async () => {
+    if (!window.electronAPI) return
+    setProxySaving(true)
+    const trimmed = proxyUrl.trim()
+    try {
+      await window.electronAPI.setProxyUrl(trimmed ? trimmed : null)
+      setProxySavedUrl(trimmed)
+    } finally {
+      setProxySaving(false)
+    }
+  }, [proxyUrl])
+
+  const handleProxyEnabledChange = useCallback(async (enabled: boolean) => {
+    if (!window.electronAPI) return
+    setProxyEnabled(enabled)
+    setProxyEnabledSaving(true)
+    try {
+      await window.electronAPI.setProxyEnabled(enabled)
+    } finally {
+      setProxyEnabledSaving(false)
+    }
+  }, [])
+
   return (
     <div className="h-full flex flex-col">
       <PanelHeader title="App Settings" actions={<HeaderMenu route={routes.view.settings('app')} helpFeature="app-settings" />} />
@@ -155,6 +189,8 @@ export default function AppSettingsPage() {
                   description={
                     authType === 'oauth_token' && hasCredential
                       ? 'Claude Pro/Max — using your Claude subscription'
+                      : authType === 'codex_oauth' && hasCredential
+                        ? 'Codex Subscription — using your Codex login'
                       : authType === 'api_key' && hasCredential
                         ? 'API Key — Anthropic, OpenRouter, or compatible API'
                         : 'Not configured'
@@ -171,6 +207,37 @@ export default function AppSettingsPage() {
               </SettingsCard>
             </SettingsSection>
 
+            {/* Network */}
+            <SettingsSection title="Network" description="Optional proxy for model requests.">
+              <SettingsCard>
+                <SettingsToggle
+                  label="Enable proxy"
+                  description="When enabled, all model requests use the proxy URL below."
+                  checked={proxyEnabled}
+                  onCheckedChange={handleProxyEnabledChange}
+                  disabled={proxyEnabledSaving}
+                />
+                <SettingsInput
+                  inCard
+                  label="Proxy URL"
+                  description="Use a local proxy like http://127.0.0.1:7890 (applies when enabled)"
+                  value={proxyUrl}
+                  onChange={setProxyUrl}
+                  placeholder="http://127.0.0.1:7890"
+                  action={(
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSaveProxy}
+                      disabled={proxySaving || proxyUrl.trim() === proxySavedUrl}
+                    >
+                      {proxySaving ? 'Saving…' : 'Save'}
+                    </Button>
+                  )}
+                />
+              </SettingsCard>
+            </SettingsSection>
+
             {/* API Setup Fullscreen Overlay — reuses the OnboardingWizard starting at the api-setup step */}
             <FullscreenOverlayBase
               isOpen={showApiSetup}
@@ -184,6 +251,8 @@ export default function AppSettingsPage() {
                 onSelectApiSetupMethod={apiSetupOnboarding.handleSelectApiSetupMethod}
                 onSubmitCredential={apiSetupOnboarding.handleSubmitCredential}
                 onStartOAuth={apiSetupOnboarding.handleStartOAuth}
+                onCheckCodexAuth={apiSetupOnboarding.handleCheckCodexAuth}
+                onOpenCodexLogin={apiSetupOnboarding.handleOpenCodexLogin}
                 onFinish={handleApiSetupFinish}
                 isWaitingForCode={apiSetupOnboarding.isWaitingForCode}
                 onSubmitAuthCode={apiSetupOnboarding.handleSubmitAuthCode}

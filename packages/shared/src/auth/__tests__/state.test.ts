@@ -55,6 +55,7 @@ describe('getSetupNeeds', () => {
           hasCredentials: false,
           apiKey: null,
           claudeOAuthToken: null,
+          codexOAuthToken: null,
         },
         workspace: { hasWorkspace: false, active: null },
       };
@@ -73,6 +74,7 @@ describe('getSetupNeeds', () => {
           hasCredentials: true,
           apiKey: 'sk-test',
           claudeOAuthToken: null,
+          codexOAuthToken: null,
         },
         workspace: { hasWorkspace: false, active: null },
       };
@@ -91,6 +93,7 @@ describe('getSetupNeeds', () => {
           hasCredentials: false,
           apiKey: null,
           claudeOAuthToken: null,
+          codexOAuthToken: null,
         },
         workspace: { hasWorkspace: false, active: null },
       };
@@ -109,6 +112,7 @@ describe('getSetupNeeds', () => {
           hasCredentials: true,
           apiKey: null,
           claudeOAuthToken: 'valid-token',
+          codexOAuthToken: null,
         },
         workspace: { hasWorkspace: false, active: null },
       };
@@ -133,6 +137,7 @@ describe('getSetupNeeds', () => {
           hasCredentials: false,
           apiKey: null,
           claudeOAuthToken: null,
+          codexOAuthToken: null,
           migrationRequired: migrationInfo,
         },
         workspace: { hasWorkspace: false, active: null },
@@ -151,6 +156,7 @@ describe('getSetupNeeds', () => {
           hasCredentials: true,
           apiKey: null,
           claudeOAuthToken: 'valid-token',
+          codexOAuthToken: null,
         },
         workspace: { hasWorkspace: false, active: null },
       };
@@ -169,6 +175,7 @@ describe('getSetupNeeds', () => {
           hasCredentials: true,
           apiKey: 'sk-test',
           claudeOAuthToken: null,
+          codexOAuthToken: null,
         },
         workspace: { hasWorkspace: true, active: null },
       };
@@ -311,6 +318,7 @@ describe('migration info flow', () => {
         hasCredentials: false,
         apiKey: null,
         claudeOAuthToken: tokenResult.accessToken,
+        codexOAuthToken: null,
         migrationRequired: tokenResult.migrationRequired,
       },
       workspace: { hasWorkspace: true, active: null },
@@ -340,6 +348,7 @@ describe('migration info flow', () => {
         hasCredentials: true,
         apiKey: null,
         claudeOAuthToken: tokenResult.accessToken,
+        codexOAuthToken: null,
         migrationRequired: tokenResult.migrationRequired, // undefined
       },
       workspace: { hasWorkspace: true, active: null },

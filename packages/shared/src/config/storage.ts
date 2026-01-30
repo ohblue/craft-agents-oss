@@ -16,6 +16,17 @@ import type { StoredAttachment, StoredMessage } from '@craft-agent/core/types';
 import type { Plan } from '../agent/plan-types.ts';
 import type { PermissionMode } from '../agent/mode-manager.ts';
 import { BUNDLED_CONFIG_DEFAULTS, type ConfigDefaults } from './config-defaults-schema.ts';
+import {
+  DEFAULT_CODEX_MODEL,
+  DEFAULT_MODEL,
+  EXTRACTION_CODEX_MODEL,
+  EXTRACTION_MODEL,
+  INSTRUCTION_UPDATE_CODEX_MODEL,
+  INSTRUCTION_UPDATE_MODEL,
+  SUMMARIZATION_CODEX_MODEL,
+  SUMMARIZATION_MODEL,
+  isClaudeModel,
+} from './models.ts';
 
 // Re-export CONFIG_DIR for convenience (centralized in paths.ts)
 export { CONFIG_DIR } from './paths.ts';
@@ -36,6 +47,8 @@ export interface StoredConfig {
   authType?: AuthType;
   anthropicBaseUrl?: string;  // Custom Anthropic API base URL (for third-party compatible APIs)
   customModel?: string;  // Custom model ID override (for third-party APIs like OpenRouter, Ollama)
+  proxyUrl?: string;  // Optional proxy URL for outbound requests (e.g. http://127.0.0.1:7890)
+  proxyEnabled?: boolean;  // Whether proxy is enabled for model requests
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
   activeSessionId: string | null;  // Currently active session (primary scope)
@@ -214,6 +227,35 @@ export function setAnthropicBaseUrl(baseUrl: string | null): void {
 export function getAnthropicBaseUrl(): string | null {
   const config = loadStoredConfig();
   return config?.anthropicBaseUrl ?? null;
+}
+
+export function getProxyUrl(): string | null {
+  const config = loadStoredConfig();
+  return config?.proxyUrl ?? null;
+}
+
+export function setProxyUrl(url: string | null): void {
+  const config = loadStoredConfig();
+  if (!config) return;
+  const trimmed = url?.trim();
+  if (trimmed) {
+    config.proxyUrl = trimmed;
+  } else {
+    delete config.proxyUrl;
+  }
+  saveConfig(config);
+}
+
+export function getProxyEnabled(): boolean {
+  const config = loadStoredConfig();
+  return config?.proxyEnabled ?? false;
+}
+
+export function setProxyEnabled(enabled: boolean): void {
+  const config = loadStoredConfig();
+  if (!config) return;
+  config.proxyEnabled = enabled;
+  saveConfig(config);
 }
 
 export function getModel(): string | null {
@@ -1099,6 +1141,14 @@ export function setCustomModel(model: string | null): void {
 export function resolveModelId(defaultModelId: string): string {
   const customModel = getCustomModel();
   if (customModel) return customModel;
+  const authType = getAuthType();
+  if (authType === 'codex_oauth') {
+    if (defaultModelId === DEFAULT_MODEL) return DEFAULT_CODEX_MODEL;
+    if (defaultModelId === EXTRACTION_MODEL) return EXTRACTION_CODEX_MODEL;
+    if (defaultModelId === SUMMARIZATION_MODEL) return SUMMARIZATION_CODEX_MODEL;
+    if (defaultModelId === INSTRUCTION_UPDATE_MODEL) return INSTRUCTION_UPDATE_CODEX_MODEL;
+    if (isClaudeModel(defaultModelId)) return DEFAULT_CODEX_MODEL;
+  }
   return defaultModelId;
 }
 

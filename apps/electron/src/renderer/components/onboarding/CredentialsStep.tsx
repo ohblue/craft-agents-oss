@@ -5,9 +5,10 @@
  * with StepFormLayout for the onboarding wizard context.
  */
 
-import { ExternalLink } from "lucide-react"
+import { ExternalLink, Terminal } from "lucide-react"
 import type { ApiSetupMethod } from "./APISetupStep"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
+import { Button } from "@/components/ui/button"
 import {
   ApiKeyInput,
   type ApiKeyStatus,
@@ -24,6 +25,8 @@ interface CredentialsStepProps {
   errorMessage?: string
   onSubmit: (data: ApiKeySubmitData) => void
   onStartOAuth?: () => void
+  onCheckCodexAuth?: () => void
+  onOpenCodexLogin?: () => void
   onBack: () => void
   // Two-step OAuth flow
   isWaitingForCode?: boolean
@@ -37,15 +40,18 @@ export function CredentialsStep({
   errorMessage,
   onSubmit,
   onStartOAuth,
+  onCheckCodexAuth,
+  onOpenCodexLogin,
   onBack,
   isWaitingForCode,
   onSubmitAuthCode,
   onCancelOAuth,
 }: CredentialsStepProps) {
-  const isOAuth = apiSetupMethod === 'claude_oauth'
+  const isClaudeOAuth = apiSetupMethod === 'claude_oauth'
+  const isCodexOAuth = apiSetupMethod === 'codex_oauth'
 
   // --- OAuth flow ---
-  if (isOAuth) {
+  if (isClaudeOAuth) {
     // Waiting for authorization code entry
     if (isWaitingForCode) {
       return (
@@ -104,6 +110,45 @@ export function CredentialsStep({
           onSubmitAuthCode={onSubmitAuthCode}
           onCancelOAuth={onCancelOAuth}
         />
+      </StepFormLayout>
+    )
+  }
+
+  // --- Codex login flow ---
+  if (isCodexOAuth) {
+    return (
+      <StepFormLayout
+        title="Connect Codex Account"
+        description="请先在终端执行 codex login，完成后点击下方检查登录状态。"
+        actions={
+          <>
+            <BackButton onClick={onBack} disabled={status === 'validating'} />
+            <ContinueButton
+              onClick={onCheckCodexAuth!}
+              className="gap-2"
+              loading={status === 'validating'}
+              loadingText="Checking..."
+            >
+              检查登录状态
+            </ContinueButton>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-center gap-2"
+            onClick={onOpenCodexLogin!}
+            disabled={status === 'validating'}
+          >
+            <Terminal className="size-4" />
+            打开终端执行 codex login
+          </Button>
+          {errorMessage && (
+            <div className="text-xs text-destructive">{errorMessage}</div>
+          )}
+        </div>
       </StepFormLayout>
     )
   }

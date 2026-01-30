@@ -121,6 +121,7 @@ async function main(): Promise<void> {
   const buildDefines = getBuildDefines();
 
   console.log("🔨 Building main process...");
+  const importMetaUrl = "file:///codex-sdk-placeholder";
 
   const proc = spawn({
     cmd: [
@@ -131,6 +132,8 @@ async function main(): Promise<void> {
       "--format=cjs",
       "--outfile=apps/electron/dist/main.cjs",
       "--external:electron",
+      ...buildDefines,
+      `--define:import.meta.url=${JSON.stringify(importMetaUrl)}`,
       ...buildDefines,
     ],
     cwd: ROOT_DIR,

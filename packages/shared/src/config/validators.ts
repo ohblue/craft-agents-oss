@@ -59,7 +59,7 @@ const WorkspaceSchema = z.object({
   iconUrl: z.string().optional(),
 });
 
-const AuthTypeSchema = z.enum(['api_key', 'oauth_token']);
+const AuthTypeSchema = z.enum(['api_key', 'oauth_token', 'codex_oauth']);
 
 export const StoredConfigSchema = z.object({
   authType: AuthTypeSchema.optional(),

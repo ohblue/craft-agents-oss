@@ -36,6 +36,7 @@ export interface AppShellContextType {
   workspaces: Workspace[]
   activeWorkspaceId: string | null
   currentModel: string
+  authType: import('@craft-agent/core/types').AuthType
   /** When set, a custom model overrides the Anthropic model selector (e.g. OpenRouter) */
   customModel: string | null
   pendingPermissions: Map<string, PermissionRequest[]>

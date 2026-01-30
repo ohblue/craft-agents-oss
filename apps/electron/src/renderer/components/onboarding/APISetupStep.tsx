@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils"
-import { Check, CreditCard, Key } from "lucide-react"
+import { Check, CreditCard, Key, Terminal } from "lucide-react"
 import { StepFormLayout, BackButton, ContinueButton } from "./primitives"
 
-export type ApiSetupMethod = 'api_key' | 'claude_oauth'
+export type ApiSetupMethod = 'api_key' | 'claude_oauth' | 'codex_oauth'
 
 interface ApiSetupOption {
   id: ApiSetupMethod
@@ -19,6 +19,12 @@ const API_SETUP_OPTIONS: ApiSetupOption[] = [
     description: 'Use your Claude subscription for unlimited access.',
     icon: <CreditCard className="size-4" />,
     recommended: true,
+  },
+  {
+    id: 'codex_oauth',
+    name: 'Codex Subscription',
+    description: 'Use your Codex subscription (via codex login).',
+    icon: <Terminal className="size-4" />,
   },
   {
     id: 'api_key',

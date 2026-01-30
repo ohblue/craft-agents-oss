@@ -4,8 +4,9 @@
  * Handles workspace setup and configuration persistence.
  */
 import { ipcMain } from 'electron'
+import { spawn } from 'child_process'
 import { mainLog } from './logger'
-import { getAuthState, getSetupNeeds } from '@craft-agent/shared/auth'
+import { getAuthState, getSetupNeeds, getCodexAuthStatus, getCodexAuthFilePath } from '@craft-agent/shared/auth'
 import { getCredentialManager } from '@craft-agent/shared/credentials'
 import { saveConfig, loadStoredConfig, generateWorkspaceId, type AuthType, type StoredConfig } from '@craft-agent/shared/config'
 import { getDefaultWorkspacesDir, generateUniqueWorkspacePath } from '@craft-agent/shared/workspaces'
@@ -114,6 +115,8 @@ export function registerOnboardingHandlers(sessionManager: SessionManager): void
           // If we receive a credential here, it means user completed native OAuth flow.
           mainLog.info('[Onboarding:Main] OAuth token auth type selected')
           mainLog.info('[Onboarding:Main] Credentials should already be saved via native OAuth flow')
+        } else if (config.authType === 'codex_oauth') {
+          mainLog.info('[Onboarding:Main] Codex OAuth selected - credentials are managed by Codex CLI')
         }
       } else {
         mainLog.info('[Onboarding:Main] Skipping credential save', {
@@ -138,6 +141,18 @@ export function registerOnboardingHandlers(sessionManager: SessionManager): void
       if (config.authType) {
         mainLog.info('[Onboarding:Main] Updating authType from', newConfig.authType, 'to', config.authType)
         newConfig.authType = config.authType
+      }
+
+      // Validate Codex login state when selected
+      if (config.authType === 'codex_oauth') {
+        const codexAuth = getCodexAuthStatus()
+        if (!codexAuth.hasToken) {
+          mainLog.warn('[Onboarding:Main] Codex auth missing - aborting save')
+          return {
+            success: false,
+            error: `Codex login not found. Run "codex login" in a terminal and try again. (Expected ${getCodexAuthFilePath()})`,
+          }
+        }
       }
 
       // 3a. Update anthropicBaseUrl if provided
@@ -308,5 +323,68 @@ export function registerOnboardingHandlers(sessionManager: SessionManager): void
   ipcMain.handle(IPC_CHANNELS.ONBOARDING_CLEAR_CLAUDE_OAUTH_STATE, async () => {
     clearOAuthState()
     return { success: true }
+  })
+
+  // Check Codex login state (reads ~/.codex/auth.json)
+  ipcMain.handle(IPC_CHANNELS.ONBOARDING_CHECK_CODEX_AUTH, async () => {
+    const status = getCodexAuthStatus()
+    return {
+      hasToken: status.hasToken,
+      accountId: status.accountId,
+      lastRefresh: status.lastRefresh,
+    }
+  })
+
+  // Open terminal and run `codex login`
+  ipcMain.handle(IPC_CHANNELS.ONBOARDING_OPEN_CODEX_LOGIN_TERMINAL, async () => {
+    try {
+      const command = 'codex login'
+      const platform = process.platform
+
+      if (platform === 'darwin') {
+        // Use Terminal.app via AppleScript
+        const script = `tell application "Terminal" to do script "${command.replace(/"/g, '\\"')}"`
+        const child = spawn('osascript', ['-e', script], { detached: true, stdio: 'ignore' })
+        child.unref()
+        return { success: true }
+      }
+
+      if (platform === 'win32') {
+        // Open new Command Prompt window and keep it open
+        const child = spawn('cmd.exe', ['/c', 'start', '""', 'cmd.exe', '/k', command], { detached: true, stdio: 'ignore' })
+        child.unref()
+        return { success: true }
+      }
+
+      // Linux/other: try common terminal emulators
+      const candidates: Array<{ cmd: string; args: string[] }> = [
+        { cmd: 'x-terminal-emulator', args: ['-e', `bash -lc "${command}; exec bash"`] },
+        { cmd: 'gnome-terminal', args: ['--', 'bash', '-lc', `${command}; exec bash`] },
+        { cmd: 'konsole', args: ['-e', 'bash', '-lc', `${command}; exec bash`] },
+        { cmd: 'xterm', args: ['-e', `bash -lc "${command}; exec bash"`] },
+      ]
+
+      let spawned = false
+      for (const candidate of candidates) {
+        try {
+          const child = spawn(candidate.cmd, candidate.args, { detached: true, stdio: 'ignore' })
+          child.unref()
+          spawned = true
+          break
+        } catch (error) {
+          mainLog.warn('[Onboarding:Main] Failed to open terminal:', candidate.cmd, error)
+        }
+      }
+
+      if (!spawned) {
+        return { success: false, error: 'No compatible terminal emulator found. Please run "codex login" manually.' }
+      }
+
+      return { success: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      mainLog.error('[Onboarding:Main] Failed to open terminal for Codex login:', message)
+      return { success: false, error: message }
+    }
   })
 }

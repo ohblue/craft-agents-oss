@@ -165,6 +165,9 @@ const api: ElectronAPI = {
   exchangeClaudeCode: (code: string) => ipcRenderer.invoke(IPC_CHANNELS.ONBOARDING_EXCHANGE_CLAUDE_CODE, code),
   hasClaudeOAuthState: () => ipcRenderer.invoke(IPC_CHANNELS.ONBOARDING_HAS_CLAUDE_OAUTH_STATE),
   clearClaudeOAuthState: () => ipcRenderer.invoke(IPC_CHANNELS.ONBOARDING_CLEAR_CLAUDE_OAUTH_STATE),
+  // Codex login (uses ~/.codex/auth.json)
+  checkCodexAuth: () => ipcRenderer.invoke(IPC_CHANNELS.ONBOARDING_CHECK_CODEX_AUTH),
+  openCodexLoginTerminal: () => ipcRenderer.invoke(IPC_CHANNELS.ONBOARDING_OPEN_CODEX_LOGIN_TERMINAL),
 
   // Settings - API Setup
   getApiSetup: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_API_SETUP),
@@ -172,6 +175,10 @@ const api: ElectronAPI = {
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_UPDATE_API_SETUP, authType, credential, anthropicBaseUrl, customModel),
   testApiConnection: (apiKey: string, baseUrl?: string, modelName?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_TEST_API_CONNECTION, apiKey, baseUrl, modelName),
+  getProxyUrl: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_PROXY),
+  setProxyUrl: (url: string | null) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET_PROXY, url),
+  getProxyEnabled: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_PROXY_ENABLED),
+  setProxyEnabled: (enabled: boolean) => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET_PROXY_ENABLED, enabled),
 
   // Settings - Model (global default)
   getModel: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_MODEL),

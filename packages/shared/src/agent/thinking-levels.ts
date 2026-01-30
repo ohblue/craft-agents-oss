@@ -10,7 +10,7 @@
  * Ultrathink override can boost to Max Think for a single message.
  */
 
-export type ThinkingLevel = 'off' | 'think' | 'max';
+export type ThinkingLevel = 'off' | 'think' | 'max' | 'low' | 'medium' | 'high' | 'xhigh';
 
 export interface ThinkingLevelDefinition {
   id: ThinkingLevel;
@@ -29,6 +29,28 @@ export const THINKING_LEVELS: readonly ThinkingLevelDefinition[] = [
   { id: 'off', name: 'No Thinking', description: 'Fastest responses, no reasoning' },
   { id: 'think', name: 'Thinking', description: 'Balanced speed and reasoning' },
   { id: 'max', name: 'Max Thinking', description: 'Deepest reasoning for complex tasks' },
+  { id: 'low', name: 'Low', description: 'Light reasoning' },
+  { id: 'medium', name: 'Medium', description: 'Balanced reasoning depth' },
+  { id: 'high', name: 'High', description: 'Deeper reasoning' },
+  { id: 'xhigh', name: 'Ultra High', description: 'Deepest reasoning depth' },
+] as const;
+
+export const CLAUDE_THINKING_LEVELS: readonly ThinkingLevelDefinition[] = [
+  { id: 'off', name: 'No Thinking', description: 'Fastest responses, no reasoning' },
+  { id: 'think', name: 'Thinking', description: 'Balanced speed and reasoning' },
+  { id: 'max', name: 'Max Thinking', description: 'Deepest reasoning for complex tasks' },
+] as const;
+
+export const CODEX_THINKING_LEVELS: readonly ThinkingLevelDefinition[] = [
+  { id: 'low', name: 'Low', description: 'Light reasoning' },
+  { id: 'medium', name: 'Medium', description: 'Balanced reasoning depth' },
+  { id: 'high', name: 'High', description: 'Deeper reasoning' },
+  { id: 'xhigh', name: 'Ultra High', description: 'Deepest reasoning depth' },
+] as const;
+
+export const CODEX_MINI_THINKING_LEVELS: readonly ThinkingLevelDefinition[] = [
+  { id: 'medium', name: 'Medium', description: 'Balanced reasoning depth' },
+  { id: 'high', name: 'High', description: 'Deeper reasoning' },
 ] as const;
 
 /** Default thinking level for new sessions when workspace has no default */
@@ -68,7 +90,8 @@ const TOKEN_BUDGETS = {
 export function getThinkingTokens(level: ThinkingLevel, modelId: string): number {
   const isHaiku = modelId.toLowerCase().includes('haiku');
   const budgets = isHaiku ? TOKEN_BUDGETS.haiku : TOKEN_BUDGETS.default;
-  return budgets[level];
+  const normalized = normalizeThinkingLevelForClaude(level);
+  return budgets[normalized];
 }
 
 /**
@@ -83,5 +106,53 @@ export function getThinkingLevelName(level: ThinkingLevel): string {
  * Validate that a value is a valid ThinkingLevel.
  */
 export function isValidThinkingLevel(value: unknown): value is ThinkingLevel {
-  return value === 'off' || value === 'think' || value === 'max';
+  return value === 'off'
+    || value === 'think'
+    || value === 'max'
+    || value === 'low'
+    || value === 'medium'
+    || value === 'high'
+    || value === 'xhigh';
+}
+
+export function normalizeThinkingLevelForClaude(level: ThinkingLevel): 'off' | 'think' | 'max' {
+  if (level === 'off' || level === 'think' || level === 'max') {
+    return level;
+  }
+  if (level === 'low') return 'off';
+  if (level === 'medium') return 'think';
+  return 'max';
+}
+
+export function normalizeThinkingLevelForCodex(
+  level: ThinkingLevel,
+  modelId?: string
+): 'low' | 'medium' | 'high' | 'xhigh' {
+  const isMini = !!modelId && modelId.includes('codex-mini');
+  let normalized: 'low' | 'medium' | 'high' | 'xhigh' = 'medium';
+
+  if (level === 'low' || level === 'medium' || level === 'high' || level === 'xhigh') {
+    normalized = level;
+  } else if (level === 'off') {
+    normalized = 'low';
+  } else if (level === 'think') {
+    normalized = 'medium';
+  } else {
+    normalized = 'high';
+  }
+
+  if (isMini) {
+    if (normalized === 'low') return 'medium';
+    if (normalized === 'xhigh') return 'high';
+  }
+
+  return normalized;
+}
+
+export function getThinkingLevelsForModel(authType?: string | null, modelId?: string | null): readonly ThinkingLevelDefinition[] {
+  if (authType === 'codex_oauth') {
+    if (modelId?.includes('codex-mini')) return CODEX_MINI_THINKING_LEVELS;
+    return CODEX_THINKING_LEVELS;
+  }
+  return CLAUDE_THINKING_LEVELS;
 }

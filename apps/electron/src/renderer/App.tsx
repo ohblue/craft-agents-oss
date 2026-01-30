@@ -27,6 +27,7 @@ import { navigate, routes } from './lib/navigate'
 import { stripMarkdown } from './utils/text'
 import { initRendererPerf } from './lib/perf'
 import { DEFAULT_MODEL } from '@config/models'
+import type { AuthType } from '../shared/types'
 import {
   initializeSessionsAtom,
   addSessionAtom,
@@ -182,6 +183,7 @@ export default function App() {
   // Custom model override from API connection settings (OpenRouter, Ollama, etc.)
   // When set, the Anthropic model selector is hidden and this model is shown instead.
   const [customModel, setCustomModel] = useState<string | null>(null)
+  const [authType, setAuthType] = useState<AuthType>('api_key')
   const [menuNewChatTrigger, setMenuNewChatTrigger] = useState(0)
   // Permission requests per session (queue to handle multiple concurrent requests)
   const [pendingPermissions, setPendingPermissions] = useState<Map<string, PermissionRequest[]>>(new Map())
@@ -252,6 +254,11 @@ export default function App() {
   const refreshCustomModel = useCallback(async () => {
     const billing = await window.electronAPI.getApiSetup()
     setCustomModel(billing.customModel || null)
+    setAuthType(billing.authType)
+    const storedModel = await window.electronAPI.getModel()
+    if (storedModel) {
+      setCurrentModel(storedModel)
+    }
   }, [])
 
   // Handle onboarding completion
@@ -394,6 +401,7 @@ export default function App() {
     // Load custom model override from API connection settings
     window.electronAPI.getApiSetup().then((billing) => {
       setCustomModel(billing.customModel || null)
+      setAuthType(billing.authType)
     })
     // Load persisted input drafts into ref (no re-render needed)
     window.electronAPI.getAllDrafts().then((drafts) => {
@@ -1161,6 +1169,7 @@ export default function App() {
     workspaces,
     activeWorkspaceId: windowWorkspaceId,
     currentModel,
+    authType,
     customModel,
     pendingPermissions,
     pendingCredentials,
@@ -1203,6 +1212,7 @@ export default function App() {
     workspaces,
     windowWorkspaceId,
     currentModel,
+    authType,
     customModel,
     pendingPermissions,
     pendingCredentials,
@@ -1292,6 +1302,8 @@ export default function App() {
           onSelectApiSetupMethod={onboarding.handleSelectApiSetupMethod}
           onSubmitCredential={onboarding.handleSubmitCredential}
           onStartOAuth={onboarding.handleStartOAuth}
+          onCheckCodexAuth={onboarding.handleCheckCodexAuth}
+          onOpenCodexLogin={onboarding.handleOpenCodexLogin}
           onFinish={onboarding.handleFinish}
           isWaitingForCode={onboarding.isWaitingForCode}
           onSubmitAuthCode={onboarding.handleSubmitAuthCode}

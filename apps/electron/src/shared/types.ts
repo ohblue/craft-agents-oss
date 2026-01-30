@@ -119,6 +119,15 @@ export interface McpToolWithPermission {
 }
 
 /**
+ * Codex authentication status (from ~/.codex/auth.json)
+ */
+export interface CodexAuthStatus {
+  hasToken: boolean
+  accountId?: string | null
+  lastRefresh?: string | null
+}
+
+/**
  * Result of fetching MCP tools with permission status
  */
 export interface McpToolsResult {
@@ -571,11 +580,17 @@ export const IPC_CHANNELS = {
   ONBOARDING_EXCHANGE_CLAUDE_CODE: 'onboarding:exchangeClaudeCode',
   ONBOARDING_HAS_CLAUDE_OAUTH_STATE: 'onboarding:hasClaudeOAuthState',
   ONBOARDING_CLEAR_CLAUDE_OAUTH_STATE: 'onboarding:clearClaudeOAuthState',
+  ONBOARDING_CHECK_CODEX_AUTH: 'onboarding:checkCodexAuth',
+  ONBOARDING_OPEN_CODEX_LOGIN_TERMINAL: 'onboarding:openCodexLoginTerminal',
 
   // Settings - API Setup
   SETTINGS_GET_API_SETUP: 'settings:getApiSetup',
   SETTINGS_UPDATE_API_SETUP: 'settings:updateApiSetup',
   SETTINGS_TEST_API_CONNECTION: 'settings:testApiConnection',
+  SETTINGS_GET_PROXY: 'settings:getProxy',
+  SETTINGS_SET_PROXY: 'settings:setProxy',
+  SETTINGS_GET_PROXY_ENABLED: 'settings:getProxyEnabled',
+  SETTINGS_SET_PROXY_ENABLED: 'settings:setProxyEnabled',
 
   // Settings - Model
   SETTINGS_GET_MODEL: 'settings:getModel',
@@ -821,6 +836,9 @@ export interface ElectronAPI {
   exchangeClaudeCode(code: string): Promise<ClaudeOAuthResult>
   hasClaudeOAuthState(): Promise<boolean>
   clearClaudeOAuthState(): Promise<{ success: boolean }>
+  // Codex login (uses ~/.codex/auth.json)
+  checkCodexAuth(): Promise<CodexAuthStatus>
+  openCodexLoginTerminal(): Promise<{ success: boolean; error?: string }>
 
   // Settings - API Setup
   getApiSetup(): Promise<ApiSetupInfo>
@@ -830,6 +848,10 @@ export interface ElectronAPI {
   // Settings - Model (global default)
   getModel(): Promise<string | null>
   setModel(model: string): Promise<void>
+  getProxyUrl(): Promise<string | null>
+  setProxyUrl(url: string | null): Promise<void>
+  getProxyEnabled(): Promise<boolean>
+  setProxyEnabled(enabled: boolean): Promise<void>
   // Session-specific model (overrides global)
   getSessionModel(sessionId: string, workspaceId: string): Promise<string | null>
   setSessionModel(sessionId: string, workspaceId: string, model: string | null): Promise<void>

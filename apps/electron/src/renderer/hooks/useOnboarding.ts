@@ -48,6 +48,8 @@ interface UseOnboardingReturn {
   // Credentials
   handleSubmitCredential: (data: ApiKeySubmitData) => void
   handleStartOAuth: () => void
+  handleCheckCodexAuth: () => void
+  handleOpenCodexLogin: () => void
 
   // Claude OAuth (two-step flow)
   isWaitingForCode: boolean
@@ -73,6 +75,7 @@ function apiSetupMethodToAuthType(method: ApiSetupMethod): AuthType {
   switch (method) {
     case 'api_key': return 'api_key'
     case 'claude_oauth': return 'oauth_token'
+    case 'codex_oauth': return 'codex_oauth'
   }
 }
 
@@ -292,6 +295,56 @@ export function useOnboarding({
     }
   }, [])
 
+  // Check Codex auth state (reads ~/.codex/auth.json) and save config if present
+  const handleCheckCodexAuth = useCallback(async () => {
+    setState(s => ({ ...s, credentialStatus: 'validating', errorMessage: undefined }))
+
+    try {
+      const result = await window.electronAPI.checkCodexAuth()
+      if (!result.hasToken) {
+        setState(s => ({
+          ...s,
+          credentialStatus: 'error',
+          errorMessage: '未检测到 Codex 登录状态。请先在终端执行 codex login。',
+        }))
+        return
+      }
+
+      await handleSaveConfig()
+
+      setState(s => ({
+        ...s,
+        credentialStatus: 'success',
+        step: 'complete',
+      }))
+    } catch (error) {
+      setState(s => ({
+        ...s,
+        credentialStatus: 'error',
+        errorMessage: error instanceof Error ? error.message : 'Codex 登录校验失败',
+      }))
+    }
+  }, [handleSaveConfig])
+
+  // Open terminal to run `codex login`
+  const handleOpenCodexLogin = useCallback(async () => {
+    setState(s => ({ ...s, errorMessage: undefined }))
+    try {
+      const result = await window.electronAPI.openCodexLoginTerminal()
+      if (!result.success) {
+        setState(s => ({
+          ...s,
+          errorMessage: result.error || '无法打开终端，请手动运行 codex login',
+        }))
+      }
+    } catch (error) {
+      setState(s => ({
+        ...s,
+        errorMessage: error instanceof Error ? error.message : '无法打开终端，请手动运行 codex login',
+      }))
+    }
+  }, [])
+
   // Submit authorization code (second step of OAuth flow)
   const handleSubmitAuthCode = useCallback(async (code: string) => {
     if (!code.trim()) {
@@ -415,6 +468,8 @@ export function useOnboarding({
     handleSelectApiSetupMethod,
     handleSubmitCredential,
     handleStartOAuth,
+    handleCheckCodexAuth,
+    handleOpenCodexLogin,
     // Two-step OAuth flow
     isWaitingForCode,
     handleSubmitAuthCode,

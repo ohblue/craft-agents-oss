@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/electron/main'
 import { join } from 'path'
 import { existsSync } from 'fs'
 import { rm, readFile } from 'fs/promises'
-import { CraftAgent, type AgentEvent, setPermissionMode, type PermissionMode, unregisterSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest } from '@craft-agent/shared/agent'
+import { CraftAgent, CodexAgent, type AgentEvent, setPermissionMode, type PermissionMode, unregisterSessionScopedToolCallbacks, AbortReason, type AuthRequest, type AuthResult, type CredentialAuthRequest } from '@craft-agent/shared/agent'
 import { sessionLog, isDebugMode, getLogFilePath } from './logger'
 import { createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk'
 import type { WindowManager } from './window-manager'
@@ -47,7 +47,7 @@ import { type Session, type Message, type SessionEvent, type FileAttachment, typ
 import { generateSessionTitle, regenerateSessionTitle, formatPathsToRelative, formatToolInputPaths, perf, encodeIconToDataUrl, getEmojiIcon, resetSummarizationClient, resolveToolIcon } from '@craft-agent/shared/utils'
 import { loadWorkspaceSkills, type LoadedSkill } from '@craft-agent/shared/skills'
 import type { ToolDisplayMeta } from '@craft-agent/core/types'
-import { DEFAULT_MODEL, getToolIconsDir } from '@craft-agent/shared/config'
+import { DEFAULT_MODEL, getAuthType, getProxyUrl, getProxyEnabled, getToolIconsDir } from '@craft-agent/shared/config'
 import { type ThinkingLevel, DEFAULT_THINKING_LEVEL } from '@craft-agent/shared/agent/thinking-levels'
 import { evaluateAutoLabels } from '@craft-agent/shared/labels/auto'
 import { listLabels } from '@craft-agent/shared/labels/storage'
@@ -264,7 +264,7 @@ function resolveToolDisplayMeta(
 interface ManagedSession {
   id: string
   workspace: Workspace
-  agent: CraftAgent | null  // Lazy-loaded - null until first message
+  agent: CraftAgent | CodexAgent | null  // Lazy-loaded - null until first message
   messages: Message[]
   isProcessing: boolean
   lastMessageAt: number
@@ -731,9 +731,15 @@ export class SessionManager {
 
       sessionLog.info('Reinitializing auth with billing type:', billing.type, customBaseUrl ? `(custom base URL: ${customBaseUrl})` : '')
 
-      // Priority 1: Custom base URL (Ollama, OpenRouter, etc.)
-      // Third-party endpoints require API key auth — OAuth tokens won't work
-      if (customBaseUrl) {
+      // Priority 0: Codex login (uses Codex SDK, no Anthropic env vars)
+      if (billing.type === 'codex_oauth') {
+        delete process.env.ANTHROPIC_API_KEY
+        delete process.env.ANTHROPIC_BASE_URL
+        delete process.env.CLAUDE_CODE_OAUTH_TOKEN
+        sessionLog.info('Using Codex login (Codex SDK)')
+      } else if (customBaseUrl) {
+        // Priority 1: Custom base URL (Ollama, OpenRouter, etc.)
+        // Third-party endpoints require API key auth — OAuth tokens won't work
         process.env.ANTHROPIC_BASE_URL = customBaseUrl
         delete process.env.CLAUDE_CODE_OAUTH_TOKEN
 
@@ -1442,17 +1448,33 @@ export class SessionManager {
   /**
    * Get or create agent for a session (lazy loading)
    */
-  private async getOrCreateAgent(managed: ManagedSession): Promise<CraftAgent> {
+  private async getOrCreateAgent(managed: ManagedSession): Promise<CraftAgent | CodexAgent> {
+    const proxyEnabled = getProxyEnabled();
+    const proxyUrl = getProxyUrl() ?? undefined;
+    if (proxyEnabled && proxyUrl) {
+      setAnthropicOptionsEnv({
+        HTTP_PROXY: proxyUrl,
+        HTTPS_PROXY: proxyUrl,
+        ALL_PROXY: proxyUrl,
+      });
+    } else {
+      setAnthropicOptionsEnv({});
+    }
+
     if (!managed.agent) {
       const end = perf.start('agent.create', { sessionId: managed.id })
       const config = loadStoredConfig()
-      managed.agent = new CraftAgent({
+      const authState = await getAuthState()
+      const useCodex = authState.billing.type === 'codex_oauth'
+
+      const agentConfig = {
         workspace: managed.workspace,
         // Session model takes priority, fallback to global config, then resolve with customModel override
         model: resolveModelId(managed.model || config?.model || DEFAULT_MODEL),
         // Initialize thinking level at construction to avoid race conditions
         thinkingLevel: managed.thinkingLevel,
         isHeadless: !AGENT_FLAGS.defaultModesEnabled,
+        authType: getAuthType(),
         // Always pass session object - id is required for plan mode callbacks
         // sdkSessionId is optional and used for conversation resumption
         session: {
@@ -1501,7 +1523,10 @@ export class SessionManager {
           enabled: true,
           logFilePath: getLogFilePath(),
         } : undefined,
-      })
+        proxyUrl: proxyEnabled ? proxyUrl : undefined,
+      }
+
+      managed.agent = useCodex ? new CodexAgent(agentConfig) : new CraftAgent(agentConfig)
       sessionLog.info(`Created agent for session ${managed.id}${managed.sdkSessionId ? ' (resuming)' : ''}`)
 
       // Set up permission handler to forward requests to renderer
